@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = "==3.12.*"
 dependencies = [
     "accelerate>=1.10.1",
-    "antlr4-python3-runtime==4.11",
+    "antlr4-python3-runtime==4.9.3",
     "backoff>=2.2.1",
     "bitsandbytes>=0.44.1; platform_system != 'Darwin'",
     "datasets>=4.0.0",
@@ -39,7 +39,8 @@ dependencies = [
     "mcp>=1.9.0",
     "openenv-core>=0.2.1",
     "docker>=7.0.0",
-
+    "hydra-submitit-launcher",
+    "lm-eval"
 ]
 
 [build-system]

@@ -1,0 +1,5 @@
+name: full_tulu3
+# Baseline: full OLMo-2 TULU3 mixture (~326k examples)
+dataset_mixer_list:
+  - allenai/tulu-3-sft-olmo-2-mixture-0225
+  - 1.0

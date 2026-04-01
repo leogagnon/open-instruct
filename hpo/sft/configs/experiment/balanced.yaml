@@ -1,0 +1,23 @@
+name: balanced
+# All 10 sources at equal weight — uniform baseline
+dataset_mixer_list:
+  - ai2-adapt-dev/flan_v2_converted
+  - 0.1
+  - ai2-adapt-dev/personahub_ifdata_manual_seed_v3_29980
+  - 0.1
+  - ai2-adapt-dev/coconot_converted
+  - 0.1
+  - ai2-adapt-dev/evol_codealpaca_heval_decontaminated
+  - 0.1
+  - ai2-adapt-dev/personahub_code_v2_34999
+  - 0.1
+  - allenai/tulu-3-sft-personas-math-grade
+  - 0.1
+  - ai2-adapt-dev/tulu_v3.9_open_math_2_gsm8k_50k
+  - 0.1
+  - ai2-adapt-dev/tulu_v3.9_personahub_math_interm_algebra_20k
+  - 0.1
+  - ai2-adapt-dev/tulu_v3.9_synthetic_finalresp_wildguardmixtrain_decontaminated_50k
+  - 0.1
+  - ai2-adapt-dev/tulu_v3.9_wildjailbreak_decontaminated_50k
+  - 0.1

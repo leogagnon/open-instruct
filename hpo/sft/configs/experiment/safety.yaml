@@ -1,0 +1,7 @@
+name: safety
+# Safety only — targets ToxiGen / WildGuard
+dataset_mixer_list:
+  - ai2-adapt-dev/tulu_v3.9_synthetic_finalresp_wildguardmixtrain_decontaminated_50k
+  - 0.6
+  - ai2-adapt-dev/tulu_v3.9_wildjailbreak_decontaminated_50k
+  - 0.4

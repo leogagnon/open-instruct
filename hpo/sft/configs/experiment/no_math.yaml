@@ -1,0 +1,17 @@
+name: no_math
+# Leave-math-out ablation (balanced weights across remaining 7 sources)
+dataset_mixer_list:
+  - ai2-adapt-dev/flan_v2_converted
+  - 0.167
+  - ai2-adapt-dev/personahub_ifdata_manual_seed_v3_29980
+  - 0.117
+  - ai2-adapt-dev/coconot_converted
+  - 0.05
+  - ai2-adapt-dev/evol_codealpaca_heval_decontaminated
+  - 0.1
+  - ai2-adapt-dev/personahub_code_v2_34999
+  - 0.067
+  - ai2-adapt-dev/tulu_v3.9_synthetic_finalresp_wildguardmixtrain_decontaminated_50k
+  - 0.1
+  - ai2-adapt-dev/tulu_v3.9_wildjailbreak_decontaminated_50k
+  - 0.067

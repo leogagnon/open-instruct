@@ -278,7 +278,7 @@ class FlatArguments:
     # Experiment tracking
     with_tracking: bool = False
     """If toggled, this experiment will be tracked with Weights and Biases"""
-    wandb_project_name: str = "open_instruct_internal"
+    wandb_project_name: str = "open_instruct"
     """The wandb's project name"""
     wandb_entity: str | None = None
     """The entity (team) of wandb's project"""
@@ -434,7 +434,9 @@ def main(args: FlatArguments, tc: TokenizerConfig):
             },
         )
         wandb_tracker = accelerator.get_tracker("wandb")
-        maybe_update_beaker_description(wandb_url=wandb_tracker.run.url)
+        maybe_update_beaker_description(
+            wandb_url=wandb_tracker.run.url if accelerator.is_main_process else None
+        )
     else:
         wandb_tracker = None  # for later eval launching
 
@@ -886,7 +888,7 @@ def main(args: FlatArguments, tc: TokenizerConfig):
                         current_step=completed_steps,
                         total_steps=args.max_train_steps,
                         start_time=start_time,
-                        wandb_url=wandb_tracker.run.url if wandb_tracker is not None else None,
+                        wandb_url=wandb_tracker.run.url if wandb_tracker is not None and accelerator.is_main_process else None,
                     )
                     total_loss = 0
                     total_aux_loss = 0
@@ -940,7 +942,7 @@ def main(args: FlatArguments, tc: TokenizerConfig):
             path=args.output_dir,
             leaderboard_name=args.hf_repo_revision,
             oe_eval_max_length=args.oe_eval_max_length,
-            wandb_url=wandb_tracker.run.url if wandb_tracker is not None else None,
+            wandb_url=wandb_tracker.run.url if wandb_tracker is not None and accelerator.is_main_process else None,
             oe_eval_tasks=args.oe_eval_tasks,
         )
     if args.push_to_hub and accelerator.is_main_process:

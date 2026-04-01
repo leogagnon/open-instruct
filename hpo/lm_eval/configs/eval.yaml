@@ -1,0 +1,23 @@
+defaults:
+  - _self_
+  - hydra: base
+  - eval_suite: full          # select with eval_suite=<name> on the CLI
+  - override hydra/launcher: fir
+
+# Path to the fine-tuned model (local dir or HuggingFace model ID).
+# Required — pass on the CLI: model_path=/path/to/checkpoint
+model_path: allenai/OLMo-2-0425-1B
+
+# lm_eval model arguments
+dtype: bfloat16
+batch_size: auto
+apply_chat_template: true  # required for instruction-tuned models; set false for base model eval
+
+# Output root; results go to <output_root>/<eval_suite.name>/
+output_root: output/lm_eval
+
+# Optional: resume an existing W&B run and log eval results as a table.
+# Populated automatically when called from sft/launch.py.
+wandb_run_id: hvyjcd4u
+wandb_project: open_instruct
+wandb_entity: guillaume-lajoie

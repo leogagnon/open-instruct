@@ -1,0 +1,9 @@
+name: math
+# Math only — targets GSM8K and algebra benchmarks
+dataset_mixer_list:
+  - allenai/tulu-3-sft-personas-math-grade
+  - 0.4
+  - ai2-adapt-dev/tulu_v3.9_open_math_2_gsm8k_50k
+  - 0.4
+  - ai2-adapt-dev/tulu_v3.9_personahub_math_interm_algebra_20k
+  - 0.2

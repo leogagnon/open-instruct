@@ -1,0 +1,20 @@
+# Hydra submitit SLURM launcher config for the FIR cluster.
+# Adjust account/partition/gres for your cluster.
+#
+# tasks_per_node: 1 — accelerate launch handles multi-GPU internally,
+# so we only need one SLURM task per node (unlike Lightning DDP which
+# needs tasks_per_node == num_gpus).
+
+defaults:
+  - submitit_slurm
+
+nodes: 1
+tasks_per_node: 1
+mem_gb: 128
+gres: gpu:h100:4
+cpus_per_task: 16
+timeout_min: 720
+account: rrg-bengioy-ad
+array_parallelism: 32
+additional_parameters:
+  no-requeue: true

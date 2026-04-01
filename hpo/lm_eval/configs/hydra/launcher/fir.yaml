@@ -1,0 +1,18 @@
+# Hydra submitit SLURM launcher config for the FIR cluster.
+# Adjust account/partition/gres for your cluster.
+
+defaults:
+  - submitit_slurm
+
+tasks_per_node: 1
+mem_gb: 128
+gres: gpu:h100:1
+cpus_per_task: 8
+timeout_min: 179
+account: rrg-bengioy-ad
+array_parallelism: 32
+additional_parameters:
+  no-requeue: true
+setup:
+  - "export SLURM_CPU_BIND=none"
+  - "export HF_ALLOW_CODE_EVAL=1"

@@ -1,0 +1,8 @@
+name: full
+# Comprehensive suite covering math, instruction-following, knowledge, and reasoning
+tasks:
+  - gsm8k_cot
+  - ifeval
+  - humaneval
+  - drop
+  - bbh

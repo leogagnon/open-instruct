@@ -1,0 +1,7 @@
+name: ifeval
+# Instruction following only — targets IFEval
+dataset_mixer_list:
+  - ai2-adapt-dev/personahub_ifdata_manual_seed_v3_29980
+  - 0.7
+  - ai2-adapt-dev/coconot_converted
+  - 0.3

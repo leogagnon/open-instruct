@@ -1,0 +1,6 @@
+name: math
+# Math-focused evaluation suite
+tasks:
+  - gsm8k
+  - minerva_math
+  - drop

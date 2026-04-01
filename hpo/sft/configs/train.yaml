@@ -1,0 +1,46 @@
+defaults:
+  - _self_
+  - hydra: base
+  - experiment: null          # select with experiment=<name> on the CLI
+  - override hydra/launcher: fir
+
+# Model
+model_name_or_path: allenai/OLMo-2-0425-1B
+tokenizer_name: allenai/OLMo-2-0425-1B
+
+# Compute: 4xH100, single node
+# Effective batch = num_processes × per_device_train_batch_size × gradient_accumulation_steps
+#                 = 4 × 2 × 16 = 128
+num_processes: 4
+per_device_train_batch_size: 2
+gradient_accumulation_steps: 16
+
+# Training hyperparams (from docs/olmo2.md 1B reference)
+max_seq_length: 4096
+learning_rate: 3e-5
+lr_scheduler_type: linear
+warmup_ratio: 0.03
+weight_decay: 0.0
+num_train_epochs: 1
+seed: 1
+max_train_steps: null
+
+# Checkpointing
+# Save checkpoints periodically each epoch and keep the latest 3.
+# Set checkpointing_steps to an integer string (e.g. "200") for step-based saves.
+checkpointing_steps: 1000
+keep_last_n_checkpoints: -1
+clean_checkpoints_at_end: false
+
+# Output
+output_root: output/sft_mixture_sweep
+
+# W&B project name (must match finetune.py's --wandb_project_name default)
+wandb_project: open_instruct
+# W&B entity — leave null to use WANDB_ENTITY env var or wandb's default
+wandb_entity: guillaume-lajoie
+
+# Eval: optionally run lm_eval after training completes
+eval:
+  enabled: true
+  eval_suite: full   # required when enabled=true, e.g. eval_suite=quick
