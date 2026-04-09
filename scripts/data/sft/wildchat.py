@@ -36,7 +36,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    ds = load_dataset("allenai/WildChat-1M-Full", num_proc=open_instruct_utils.max_num_processes())
+    ds = load_dataset("allenai/WildChat-1M", num_proc=open_instruct_utils.max_num_processes())
     gpt4_subset = ds.filter(lambda example: "gpt-4" in example["model"], num_proc=16)
     gpt35_subset = ds.filter(lambda example: "gpt-3.5" in example["model"], num_proc=16)
     assert len(gpt4_subset["train"]) + len(gpt35_subset["train"]) == len(
@@ -58,7 +58,7 @@ if __name__ == "__main__":
         f"- hf_entity: {args.hf_entity}\n"
         f"- converted_dataset_name: {args.converted_dataset_name}\n"
         f"- local_save_dir: {args.local_save_dir}\n\n"
-        "Please refer to the [original dataset](https://huggingface.co/datasets/allenai/WildChat-1M-Full) "
+        "Please refer to the [original dataset](https://huggingface.co/datasets/allenai/WildChat-1M) "
         "for more information about this dataset and the license."
     )
 
@@ -73,7 +73,7 @@ if __name__ == "__main__":
         f"- hf_entity: {args.hf_entity}\n"
         f"- converted_dataset_name: {args.converted_dataset_name}\n"
         f"- local_save_dir: {args.local_save_dir}\n\n"
-        "Please refer to the [original dataset](https://huggingface.co/datasets/allenai/WildChat-1M-Full) "
+        "Please refer to the [original dataset](https://huggingface.co/datasets/allenai/WildChat-1M) "
         "for more information about this dataset and the license."
     )
 
@@ -88,7 +88,7 @@ if __name__ == "__main__":
         converted_dataset_name="wildchat_gpt4_converted"
         if not args.converted_dataset_name
         else args.converted_dataset_name + "_gpt4",
-        local_save_dir=args.local_save_dir,
+        local_save_dir=args.local_save_dir + "_gpt4" if args.local_save_dir else None,
         readme_content=gpt4_subset_readme_content,
     )
 
@@ -103,6 +103,6 @@ if __name__ == "__main__":
         converted_dataset_name="wildchat_gpt35_converted"
         if not args.converted_dataset_name
         else args.converted_dataset_name + "_gpt35",
-        local_save_dir=args.local_save_dir,
+        local_save_dir=args.local_save_dir + "_gpt35" if args.local_save_dir else None,
         readme_content=gpt35_subset_readme_content,
     )

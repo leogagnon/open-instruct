@@ -2,7 +2,8 @@ defaults:
   - _self_
   - hydra: base
   - experiment: null          # select with experiment=<name> on the CLI
-  - override hydra/launcher: fir
+  - hydra/sweeper/params: null
+  - override hydra/launcher: tamia
 
 # Model
 model_name_or_path: allenai/OLMo-2-0425-1B
@@ -25,22 +26,31 @@ num_train_epochs: 1
 seed: 1
 max_train_steps: null
 
+# Dataset caching
+dataset_skip_cache: false
+cache_dataset_only: false
+dataset_local_cache_dir: local_dataset_cache
+dataset_use_per_source_cache: true
+
 # Checkpointing
 # Save checkpoints periodically each epoch and keep the latest 3.
 # Set checkpointing_steps to an integer string (e.g. "200") for step-based saves.
-checkpointing_steps: 1000
+checkpointing_steps: 2000
 keep_last_n_checkpoints: -1
 clean_checkpoints_at_end: false
+save_initial_checkpoint: false  # save a step_0 checkpoint before training starts
 
-# Output
-output_root: output/sft_mixture_sweep
+# Output — runs are saved under logs/results/<wandb_run_id>/
+output_root: /home/l/leog/links/projects/aip-glaj/leog/results
 
 # W&B project name (must match finetune.py's --wandb_project_name default)
 wandb_project: open_instruct
 # W&B entity — leave null to use WANDB_ENTITY env var or wandb's default
 wandb_entity: guillaume-lajoie
+# Optional sweep identifier logged as a W&B tag and run group
+sweep_id: null
 
 # Eval: optionally run lm_eval after training completes
 eval:
-  enabled: true
+  enabled: false
   eval_suite: full   # required when enabled=true, e.g. eval_suite=quick

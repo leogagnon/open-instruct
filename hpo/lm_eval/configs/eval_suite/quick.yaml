@@ -1,6 +1,0 @@
-name: quick
-# Fast sanity-check suite (~30 min on 1xH100)
-tasks:
-  - gsm8k_cot
-  - ifeval
-  - mmlu

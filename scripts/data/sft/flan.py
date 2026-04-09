@@ -37,6 +37,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--apply_empty_message_filters", action="store_true", help="Apply empty message filters to the dataset."
     )
+    parser.add_argument(
+        "--total_examples",
+        type=int,
+        default=None,
+        help="Total number of examples to sample across all subsets (proportional to default sizes). Default: 90000.",
+    )
     args = parser.parse_args()
 
     readme_content = (
@@ -70,6 +76,11 @@ if __name__ == "__main__":
         "flan_zsopt_data": 2000,
         "t0_fsopt_data": 6000,
     }
+
+    if args.total_examples is not None:
+        default_total = sum(sampling_sizes.values())
+        scale = args.total_examples / default_total
+        sampling_sizes = {k: int(v * scale) for k, v in sampling_sizes.items()}
 
     subsets = []
     for subset, sampling_size in sampling_sizes.items():

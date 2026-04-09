@@ -1,0 +1,27 @@
+defaults:
+  - eval_schema              # structured config schema (defined in launch.py)
+  - _self_
+  - hydra: base
+  - eval_suite: capability       # select with eval_suite=<name> on the CLI
+  - safety_suite: safety     # optional: set to safety or safety_core; null to skip
+  - override hydra/launcher: tamia
+
+# Root directory containing all training run outputs.
+ckpt_root: /home/l/leog/links/projects/aip-glaj/leog/results
+
+# Checkpoint to evaluate, in the format "<wandb_run_id>/step_<n>".
+# The wandb_run_id is extracted automatically for W&B logging.
+ckpt: 11bkpklo/step_4000
+
+# vLLM model arguments
+dtype: bfloat16
+gpus: 4                    # tensor parallelism (number of GPUs)
+batch_size: auto
+max_model_len: 4096        # override vLLM max sequence length (handles inputs slightly over model config limit)
+
+# Output root; results go to <output_root>/<eval_suite.name>/
+output_root: /home/l/leog/links/scratch/open-instruct/logs/eval_results
+
+# W&B project to log eval results to (run ID is extracted from ckpt).
+wandb_project: open_instruct
+wandb_entity: guillaume-lajoie

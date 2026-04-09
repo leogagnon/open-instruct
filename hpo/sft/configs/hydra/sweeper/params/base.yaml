@@ -1,0 +1,5 @@
+experiment: random_0,random_1,random_2,random_3,random_4,random_5,random_6,random_7,random_8,random_9,random_10,random_11,random_12,random_13,random_14
+
+sweep_id: sweep_0
+max_train_steps: 10000
+num_train_epochs: 1

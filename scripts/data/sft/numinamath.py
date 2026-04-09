@@ -66,7 +66,7 @@ if __name__ == "__main__":
         converted_dataset_name="numinamath_cot_converted"
         if args.converted_dataset_name is None
         else args.converted_dataset_name + "_cot",
-        local_save_dir=args.local_save_dir,
+        local_save_dir=args.local_save_dir + "_cot" if args.local_save_dir else None,
         readme_content=cot_subset_readme_content,
     )
 
@@ -83,6 +83,6 @@ if __name__ == "__main__":
         converted_dataset_name="numinamath_tir_converted"
         if args.converted_dataset_name is None
         else args.converted_dataset_name + "_tir",
-        local_save_dir=args.local_save_dir,
+        local_save_dir=args.local_save_dir + "_tir" if args.local_save_dir else None,
         readme_content=tir_subset_readme_content,
     )

@@ -1,0 +1,9 @@
+defaults:
+  - sweep_schema
+  - _self_
+
+# ID of the SFT sweep to evaluate (matches the sweep_id field in each run's config.yaml).
+sweep_id: sweep_0
+
+# Root directory containing all training run outputs.
+ckpt_root: /home/l/leog/links/projects/aip-glaj/leog/results

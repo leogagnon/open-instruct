@@ -47,7 +47,9 @@ from transformers.training_args import _convert_str_dict
 
 from open_instruct import logger_utils, utils
 from open_instruct.dataset_transformation import (
+    ATTENTION_MASK_KEY,
     INPUT_IDS_KEY,
+    LABELS_KEY,
     TOKENIZED_SFT_DATASET_KEYS,
     TokenizerConfig,
     get_cached_dataset_tulu,
@@ -143,6 +145,9 @@ class FlatArguments:
     """The hash of the dataset configuration."""
     dataset_skip_cache: bool = False
     """Whether to skip the cache."""
+    dataset_use_per_source_cache: bool = False
+    """Cache each source independently (weight-agnostic). Mixture assembly is then done
+    in-memory, so changing weights never triggers re-tokenization."""
     dataset_mix_dir: str | None = field(
         default=None, metadata={"help": "The directory to save the mixed dataset to disk."}
     )
@@ -260,6 +265,10 @@ class FlatArguments:
         metadata={
             "help": "Whether the various states should be saved at the end of every n steps, or 'epoch' for each epoch."
         },
+    )
+    save_initial_checkpoint: bool = field(
+        default=False,
+        metadata={"help": "If true, save a checkpoint at step 0 before any training begins."},
     )
     keep_last_n_checkpoints: int = field(
         default=3, metadata={"help": "How many checkpoints to keep in the output directory. -1 for all."}
@@ -434,6 +443,8 @@ def main(args: FlatArguments, tc: TokenizerConfig):
             },
         )
         wandb_tracker = accelerator.get_tracker("wandb")
+        if accelerator.is_main_process:
+            wandb_tracker.run.define_metric("*", step_metric="trainer/global_step")
         maybe_update_beaker_description(
             wandb_url=wandb_tracker.run.url if accelerator.is_main_process else None
         )
@@ -478,9 +489,11 @@ def main(args: FlatArguments, tc: TokenizerConfig):
             hf_entity=args.hf_entity,
             dataset_local_cache_dir=args.dataset_local_cache_dir,
             dataset_skip_cache=args.dataset_skip_cache,
+            dataset_use_per_source_cache=args.dataset_use_per_source_cache,
         )
         train_dataset = train_dataset.shuffle(seed=args.seed)
-        train_dataset.set_format(type="pt")
+        training_cols = [c for c in [INPUT_IDS_KEY, LABELS_KEY, ATTENTION_MASK_KEY] if c in train_dataset.column_names]
+        train_dataset.set_format(type="pt", columns=training_cols)
     if accelerator.is_main_process:
         visualize_token(train_dataset[0][INPUT_IDS_KEY], tokenizer)
 
@@ -672,9 +685,13 @@ def main(args: FlatArguments, tc: TokenizerConfig):
 
     # We need to recalculate our total training steps as the size of the training dataloader may have changed.
     num_update_steps_per_epoch = math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
+    epoch_steps = args.num_train_epochs * num_update_steps_per_epoch
     if overrode_max_train_steps:
-        args.max_train_steps = args.num_train_epochs * num_update_steps_per_epoch
-    # Afterwards we recalculate our number of training epochs
+        args.max_train_steps = epoch_steps
+    else:
+        # max_train_steps is a cap: stop at whichever limit comes first.
+        args.max_train_steps = min(args.max_train_steps, epoch_steps)
+    # Recalculate the number of epochs needed to reach max_train_steps.
     args.num_train_epochs = math.ceil(args.max_train_steps / num_update_steps_per_epoch)
 
     # Figure out how many steps we should save the Accelerator states
@@ -724,6 +741,13 @@ def main(args: FlatArguments, tc: TokenizerConfig):
     print(f"Starting {starting_epoch=}, {resume_batch_idx=}, {resume_step=}, {completed_steps=}.")
     # update the progress_bar if load from checkpoint
     progress_bar.update(completed_steps)
+
+    if args.save_initial_checkpoint and not last_checkpoint_path:
+        initial_output_dir = os.path.join(args.output_dir, "step_0") if args.output_dir else "step_0"
+        accelerator.save_state(initial_output_dir)
+        with open(os.path.join(initial_output_dir, "COMPLETED"), "w") as f:
+            f.write("COMPLETED")
+        accelerator.wait_for_everyone()
     local_total_tokens = torch.tensor(0, dtype=torch.int64, device=accelerator.device)
     local_pred_tokens = torch.tensor(0, dtype=torch.int64, device=accelerator.device)
     local_total_tokens_this_log_period = torch.tensor(0, dtype=torch.int64, device=accelerator.device)
@@ -883,6 +907,7 @@ def main(args: FlatArguments, tc: TokenizerConfig):
                     if args.verbose:
                         accelerator.print(f"{metrics_to_log=}")
                     if args.with_tracking:
+                        metrics_to_log["trainer/global_step"] = completed_steps
                         accelerator.log(metrics_to_log, step=completed_steps)
                     maybe_update_beaker_description(
                         current_step=completed_steps,

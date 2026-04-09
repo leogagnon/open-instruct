@@ -1,5 +1,0 @@
-name: code
-# Code generation evaluation suite
-tasks:
-  - humaneval
-  - mbpp

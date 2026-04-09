@@ -1,5 +1,0 @@
-name: reasoning
-# FLAN CoT only — targets reading comprehension / reasoning (DROP)
-dataset_mixer_list:
-  - ai2-adapt-dev/flan_v2_converted
-  - 1.0

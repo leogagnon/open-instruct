@@ -1,0 +1,7 @@
+name: safety_core
+tasks:
+  - wildguardtest::default
+  - bbq::default
+  - toxigen::tiny
+  - strongreject::logprobs
+  - wmdp::default

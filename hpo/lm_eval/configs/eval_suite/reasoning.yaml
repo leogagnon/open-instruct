@@ -1,6 +1,0 @@
-name: reasoning
-# Reasoning and reading comprehension suite
-tasks:
-  - bbh
-  - drop
-  - arc_challenge

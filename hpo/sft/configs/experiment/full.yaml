@@ -1,0 +1,39 @@
+name: full
+# All 19 sources at full weight 
+dataset_mixer_list:
+  - ai2-adapt-dev/oasst1_converted
+  - 1.0
+  - /scratch/l/leog/open-instruct/data/sft_full/flan.parquet
+  - 1.0
+  - ai2-adapt-dev/no_robots_converted
+  - 1.0
+  - /scratch/l/leog/open-instruct/data/sft_full/wildchat_gpt4.parquet
+  - 1.0
+  - allenai/tulu-3-sft-personas-math-filtered
+  - 1.0
+  - allenai/tulu-3-sft-personas-math-grade-filtered
+  - 1.0
+  - /scratch/l/leog/open-instruct/data/sft_full/open_math_instruct.parquet
+  - 1.0
+  - /scratch/l/leog/open-instruct/data/sft_full/numinamath_tir.parquet
+  - 1.0
+  - ai2-adapt-dev/tulu_v3.9_personahub_math_interm_algebra_20k
+  - 1.0
+  - ai2-adapt-dev/personahub_code_v2_34999
+  - 1.0
+  - /scratch/l/leog/open-instruct/data/sft_full/evol_codealpaca.parquet
+  - 1.0
+  - ai2-adapt-dev/personahub_ifdata_manual_seed_v3_29980
+  - 1.0
+  - ai2-adapt-dev/coconot_converted
+  - 1.0
+  - ai2-adapt-dev/tulu_v3.9_synthetic_finalresp_wildguardmixtrain_decontaminated_50k
+  - 1.0
+  - ai2-adapt-dev/tulu_v3.9_wildjailbreak_decontaminated_50k
+  - 1.0
+  - /scratch/l/leog/open-instruct/data/sft_full/sciriff.parquet
+  - 1.0
+  - /scratch/l/leog/open-instruct/data/sft_full/table_gpt.parquet
+  - 1.0
+  - /scratch/l/leog/open-instruct/data/sft_full/aya.parquet
+  - 1.0

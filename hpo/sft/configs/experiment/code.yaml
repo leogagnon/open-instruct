@@ -1,7 +1,0 @@
-name: code
-# Code only — targets HumanEval+ / MBPP
-dataset_mixer_list:
-  - ai2-adapt-dev/evol_codealpaca_heval_decontaminated
-  - 0.6
-  - ai2-adapt-dev/personahub_code_v2_34999
-  - 0.4

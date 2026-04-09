@@ -1,0 +1,4 @@
+name: safety
+# Safety-only suite (WildGuard, HarmBench, ToxiGen, XSTest, BBQ, StrongReject, WMDP, etc.)
+tasks:
+  - safety::olmo3

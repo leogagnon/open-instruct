@@ -1778,6 +1778,93 @@ def _get_serializable_dataset_config_dict(dc: DatasetConfig, exclude_none: bool 
     return d
 
 
+def compute_source_hash(dc: DatasetConfig, tc: TokenizerConfig) -> str:
+    """Hash for per-source caching — excludes weight/sampling parameters.
+
+    Two DatasetConfigs that differ only in frac_or_num_samples will share the
+    same source hash, allowing the tokenized full-dataset cache to be reused.
+    """
+    dc_dict = {
+        k: v
+        for k, v in {
+            "dataset_name": dc.dataset_name,
+            "dataset_split": dc.dataset_split,
+            "dataset_revision": dc.dataset_revision,
+            "dataset_commit_hash": dc.dataset_commit_hash,
+            "transform_fn": dc.transform_fn,
+            "transform_fn_args": dc.transform_fn_args,
+            "target_columns": dc.target_columns,
+        }.items()
+        if v is not None
+    }
+    tc_dict = {k: v for k, v in asdict(tc).items() if v is not None}
+    combined = {
+        "cache_version": DATASET_CACHE_VERSION,
+        "source_config": dc_dict,
+        "tokenizer_config": tc_dict,
+    }
+    return "src_" + hashlib.sha256(json.dumps(combined, sort_keys=True).encode()).hexdigest()[:10]
+
+
+def _load_or_create_source_cache(
+    dc: DatasetConfig, tc: TokenizerConfig, local_cache_dir: str
+) -> tuple[Dataset, int]:
+    """Return (full_tokenized_dataset, full_size) for a single source, using a
+    weight-independent on-disk cache.
+
+    The first call tokenizes the entire source at weight=1.0 and saves to disk.
+    Subsequent calls (even with a different mixture weight) load instantly from
+    the cached Arrow files.
+    """
+    source_hash = compute_source_hash(dc, tc)
+    cache_path = os.path.join(local_cache_dir, source_hash)
+    meta_path = os.path.join(cache_path, "source_meta.json")
+
+    if os.path.exists(cache_path) and os.path.exists(meta_path):
+        print(f"✅ Per-source cache hit for {dc.dataset_name} ({source_hash})")
+        dataset = Dataset.load_from_disk(cache_path, keep_in_memory=True)
+        with open(meta_path) as f:
+            meta = json.load(f)
+        return dataset, meta["full_size"]
+
+    print(f"🔨 Building per-source cache for {dc.dataset_name} ({source_hash})...")
+
+    # Build a fresh DatasetConfig at weight=1.0 so we tokenize the full source.
+    # This re-downloads/re-reads the raw data, but only happens once per source.
+    dc_full = DatasetConfig(
+        dataset_name=dc.dataset_name,
+        dataset_split=dc.dataset_split,
+        dataset_revision=dc.dataset_revision,
+        transform_fn=dc.transform_fn,
+        transform_fn_args=dc.transform_fn_args,
+        target_columns=dc.target_columns,
+        frac_or_num_samples=1.0,
+        dataset_config_seed=dc.dataset_config_seed,
+    )
+    # __post_init__ already set dataset_range = full size; no update_range needed.
+
+    full_tokenized = get_dataset_v1(dc_full, tc)
+
+    # Pre-compute per-example token counts and store as columns so stats can be
+    # derived at load time without any map() call.
+    if INPUT_IDS_KEY in full_tokenized.column_names:
+        def _add_token_counts(sample):
+            return {
+                "_token_count": len(sample[INPUT_IDS_KEY]),
+                "_label_token_count": sum(1 for label in sample[LABELS_KEY] if label != -100),
+            }
+        full_tokenized = full_tokenized.map(_add_token_counts, batched=False)
+
+    full_tokenized.save_to_disk(cache_path)
+
+    meta = {"dataset_name": dc.dataset_name, "full_size": len(full_tokenized), "source_hash": source_hash}
+    with open(meta_path, "w") as f:
+        json.dump(meta, f, indent=2)
+
+    print(f"✅ Saved per-source cache for {dc.dataset_name}: {len(full_tokenized)} examples → {cache_path}")
+    return Dataset.load_from_disk(cache_path, keep_in_memory=True), len(full_tokenized)
+
+
 def compute_config_hash(dcs: list[DatasetConfig], tc: TokenizerConfig) -> str:
     """Compute a deterministic hash of both configs for caching.
 
@@ -1908,9 +1995,21 @@ class LocalDatasetTransformationCache:
             json.dump(config_dict, f, indent=2)
 
     def load_or_transform_dataset(
-        self, dcs: list[DatasetConfig], tc: TokenizerConfig, dataset_skip_cache: bool = False
+        self,
+        dcs: list[DatasetConfig],
+        tc: TokenizerConfig,
+        dataset_skip_cache: bool = False,
+        use_per_source_cache: bool = False,
     ) -> tuple[Dataset, dict[str, Any]]:
-        """Load dataset from local cache if it exists, otherwise transform and cache it locally."""
+        """Load dataset from local cache if it exists, otherwise transform and cache it locally.
+
+        When use_per_source_cache=True, each source is tokenized and cached independently
+        (weight-agnostic). Mixture assembly is done in-memory by subsampling from the per-source
+        caches, so changing mixture weights no longer requires re-tokenization.
+        """
+        if use_per_source_cache:
+            return self._load_with_per_source_cache(dcs, tc)
+
         cache_path = self.get_cache_path()
 
         # Check if the cache exists
@@ -2002,6 +2101,76 @@ class LocalDatasetTransformationCache:
 
         loaded_dataset = Dataset.load_from_disk(cache_path, keep_in_memory=True)
         return loaded_dataset, all_statistics
+
+    def _load_with_per_source_cache(
+        self, dcs: list[DatasetConfig], tc: TokenizerConfig
+    ) -> tuple[Dataset, dict[str, Any]]:
+        """Assemble a mixture using per-source caches.
+
+        Each source is tokenized once (at weight=1.0) and cached independently.
+        Subsampling to the requested weight is done in-memory from the cached
+        full-source dataset — no re-tokenization needed when weights change.
+        """
+        subsampled_datasets = []
+        dataset_statistics = []
+        dataset_order = []
+
+        for dc in dcs:
+            full_dataset, full_size = _load_or_create_source_cache(dc, tc, self.dataset_local_cache_dir)
+
+            # Recompute subsample size relative to the tokenized full-source size
+            # (may differ slightly from dc.dataset_range which was based on raw size).
+            frac = dc.frac_or_num_samples
+            if isinstance(frac, float):
+                n = int(frac * full_size)
+            else:
+                n = int(frac)
+
+            if n >= full_size:
+                # Upsampling: fall back to select_samples logic on the tokenized dataset
+                full_repeats = n // full_size
+                extra = n % full_size
+                indices = list(range(full_size)) * full_repeats
+                if extra > 0:
+                    rng = np.random.RandomState(dc.dataset_config_seed)
+                    indices += rng.choice(full_size, size=extra, replace=False).tolist()
+                dataset = full_dataset.select(indices)
+            else:
+                dataset = full_dataset.select(range(n))
+
+            # Collect statistics
+            stats = {
+                "dataset_name": dc.dataset_name,
+                "dataset_split": dc.dataset_split,
+                "initial_instances": full_size,
+                "final_instances": len(dataset),
+                "instances_filtered": full_size - len(dataset),
+                "frac_or_num_samples": frac,
+                "original_dataset_size": full_size,
+                "is_upsampled": n > full_size,
+                "upsampling_factor": n / full_size if full_size > 0 else 1.0,
+            }
+
+            if "_token_count" in dataset.column_names:
+                # Pre-computed at cache creation time — just sum the columns, no map needed.
+                total_tokens = sum(dataset["_token_count"])
+                trainable_tokens = sum(dataset["_label_token_count"])
+                stats["total_tokens"] = total_tokens
+                stats["trainable_tokens"] = trainable_tokens
+                stats["avg_tokens_per_instance"] = total_tokens / len(dataset) if len(dataset) > 0 else 0
+
+            dataset_statistics.append(stats)
+            dataset_order.append(dc.dataset_name)
+            subsampled_datasets.append(dataset)
+
+        # Drop helper columns before handing off to the data collator.
+        cols_to_drop = [c for c in ("_token_count", "_label_token_count") if subsampled_datasets and c in subsampled_datasets[0].column_names]
+        if cols_to_drop:
+            subsampled_datasets = [d.remove_columns(cols_to_drop) for d in subsampled_datasets]
+        combined = concatenate_datasets(subsampled_datasets)
+        combined = combined.add_column("index", range(len(combined)))
+        all_statistics = {"per_dataset_stats": dataset_statistics, "dataset_order": dataset_order}
+        return combined, all_statistics
 
 
 def load_dataset_configs(
@@ -2110,27 +2279,36 @@ def get_cached_dataset_tulu_with_statistics(
     drop_dataset_source: bool = True,
     dataset_config_seed: int = 42,
     system_prompt_override: str | None = None,
+    dataset_use_per_source_cache: bool = False,
 ) -> tuple[Dataset, dict[str, Any]]:
-    if dataset_config_hash is None:
-        dcs = load_dataset_configs(
-            dataset_mixer_list,
-            dataset_mixer_list_splits,
-            dataset_transform_fn,
-            transform_fn_args,
-            target_columns,
-            dataset_config_seed,
-        )
-        dataset_config_hash = compute_config_hash(dcs, tc)
-    else:
-        dcs = []
-    if dataset_cache_mode == "local":
-        cache = LocalDatasetTransformationCache(
-            config_hash=dataset_config_hash, dataset_local_cache_dir=dataset_local_cache_dir
-        )
-    elif dataset_cache_mode == "hf":
-        cache = DatasetTransformationCache(config_hash=dataset_config_hash, hf_entity=hf_entity)
+    dcs = load_dataset_configs(
+        dataset_mixer_list,
+        dataset_mixer_list_splits,
+        dataset_transform_fn,
+        transform_fn_args,
+        target_columns,
+        dataset_config_seed,
+    )
 
-    dataset, statistics = cache.load_or_transform_dataset(dcs, tc, dataset_skip_cache=dataset_skip_cache)
+    if dataset_use_per_source_cache:
+        # Per-source cache: no mixture-level caching, assembly is always in-memory.
+        cache = LocalDatasetTransformationCache(
+            config_hash="unused",  # not used in per-source mode
+            dataset_local_cache_dir=dataset_local_cache_dir,
+        )
+        dataset, statistics = cache.load_or_transform_dataset(
+            dcs, tc, dataset_skip_cache=True, use_per_source_cache=True
+        )
+    else:
+        if dataset_config_hash is None:
+            dataset_config_hash = compute_config_hash(dcs, tc)
+        if dataset_cache_mode == "local":
+            cache = LocalDatasetTransformationCache(
+                config_hash=dataset_config_hash, dataset_local_cache_dir=dataset_local_cache_dir
+            )
+        elif dataset_cache_mode == "hf":
+            cache = DatasetTransformationCache(config_hash=dataset_config_hash, hf_entity=hf_entity)
+        dataset, statistics = cache.load_or_transform_dataset(dcs, tc, dataset_skip_cache=dataset_skip_cache)
 
     if drop_dataset_source:
         dataset = remove_dataset_source_field(dataset)
@@ -2152,6 +2330,7 @@ def get_cached_dataset_tulu(
     dataset_skip_cache: bool = False,
     dataset_config_seed: int = 42,
     system_prompt_override: str | None = None,
+    dataset_use_per_source_cache: bool = False,
 ) -> Dataset:
     return get_cached_dataset_tulu_with_statistics(
         dataset_mixer_list=dataset_mixer_list,
@@ -2168,4 +2347,5 @@ def get_cached_dataset_tulu(
         drop_dataset_source=True,
         dataset_config_seed=dataset_config_seed,
         system_prompt_override=system_prompt_override,
+        dataset_use_per_source_cache=dataset_use_per_source_cache,
     )[0]

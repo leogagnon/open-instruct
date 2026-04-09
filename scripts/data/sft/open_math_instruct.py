@@ -36,6 +36,15 @@ if __name__ == "__main__":
     parser.add_argument(
         "--apply_empty_message_filters", action="store_true", help="Apply empty message filters to the dataset."
     )
+    parser.add_argument(
+        "--num_examples",
+        type=int,
+        default=None,
+        help=(
+            "If set, combine GSM8K and MATH subsets, shuffle, subsample to this many examples, "
+            "and save as a single dataset instead of two separate ones."
+        ),
+    )
     args = parser.parse_args()
 
     conversion_func = lambda example: {
@@ -45,10 +54,43 @@ if __name__ == "__main__":
         ]
     }
 
+    from datasets import concatenate_datasets
+
     ds = load_dataset("nvidia/OpenMathInstruct-2", num_proc=open_instruct_utils.max_num_processes())["train"]
 
     gsm_subset = ds.filter(lambda x: "gsm8k" in x["problem_source"])
     math_subset = ds.filter(lambda x: "math" in x["problem_source"])
+
+    if args.num_examples is not None:
+        combined = concatenate_datasets([gsm_subset, math_subset])
+        combined = combined.shuffle(seed=42).select(range(min(args.num_examples, len(combined))))
+        combined_readme_content = (
+            "This is a converted version of the OpenMathInstruct-2 dataset (combined GSM8K+MATH subset) "
+            "into Tulu SFT training format.\n\n"
+            "The conversion script can be found in our "
+            "[open-instruct](https://github.com/allenai/open-instruct/blob/main/scripts/data/sft/open_math_instruct.py) repo.\n"
+            f"- num_examples: {args.num_examples}\n"
+            f"- apply_keyword_filters: {args.apply_keyword_filters}\n"
+            f"- apply_empty_message_filters: {args.apply_empty_message_filters}\n\n"
+            "Please refer to the [original dataset](https://huggingface.co/datasets/nvidia/OpenMathInstruct-2) "
+            "for more information about this dataset and the license."
+        )
+        convert_sft_dataset(
+            ds=combined,
+            hf_dataset_id=None,
+            convert_fn=conversion_func,
+            apply_keyword_filters=args.apply_keyword_filters,
+            apply_empty_message_filters=args.apply_empty_message_filters,
+            push_to_hub=args.push_to_hub,
+            hf_entity=args.hf_entity,
+            converted_dataset_name="open_math_2_combined_converted"
+            if not args.converted_dataset_name
+            else args.converted_dataset_name,
+            local_save_dir=args.local_save_dir,
+            readme_content=combined_readme_content,
+        )
+        import sys
+        sys.exit(0)
 
     gsm_readme_content = (
         "This is a converted version of the OpenMathInstruct-2 dataset (GSM8K subset) into Tulu SFT training format.\n\n"

@@ -1,0 +1,13 @@
+name: full
+# Comprehensive suite covering math, instruction-following, knowledge, and reasoning.
+# All tasks use chat format (::tulu regime) suitable for instruction-tuned models.
+# Safety tasks are run separately via safety_suite (external eval, cannot be mixed here).
+tasks:
+  - gsm8k::tulu
+  - ifeval::tulu
+  - codex_humaneval::tulu
+  - drop:0shot-chat::olmes
+  - bbh:cot::tulu
+  - truthfulqa::tulu
+  - minerva_math_500::tulu
+  - mmlu:mc::tulu
