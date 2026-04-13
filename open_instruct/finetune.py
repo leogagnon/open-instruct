@@ -944,14 +944,34 @@ def main(args: FlatArguments, tc: TokenizerConfig):
                 clean_last_n_checkpoints(args.output_dir, args.keep_last_n_checkpoints)
             accelerator.wait_for_everyone()
 
-    if args.output_dir is not None:
-        save_with_accelerate(
-            accelerator, model, tokenizer, args.output_dir, args.use_lora, chat_template_name=tc.chat_template_name
-        )
-
-    # remove all checkpoints to save space
+    # remove all intermediate checkpoints to save space before writing the final model
     if args.clean_checkpoints_at_end and accelerator.is_local_main_process:
         clean_last_n_checkpoints(args.output_dir, keep_last_n_checkpoints=0)
+
+    if args.output_dir is not None:
+        final_checkpoint_dir = os.path.join(args.output_dir, f"step_{completed_steps}")
+        save_with_accelerate(
+            accelerator, model, tokenizer, final_checkpoint_dir, args.use_lora, chat_template_name=tc.chat_template_name
+        )
+        # Symlink HF config/tokenizer files from the final checkpoint into the root
+        # output_dir so that _ensure_hf_model (in hpo/eval) can find them when
+        # converting intermediate ZeRO-3 checkpoint dirs to HF format.
+        if accelerator.is_main_process:
+            step_subdir = os.path.basename(final_checkpoint_dir)
+            hf_files = [
+                "config.json",
+                "generation_config.json",
+                "chat_template.jinja",
+                "tokenizer_config.json",
+                "tokenizer.json",
+                "special_tokens_map.json",
+                "vocab.json",
+            ]
+            for fname in hf_files:
+                src = os.path.join(final_checkpoint_dir, fname)
+                dst = os.path.join(args.output_dir, fname)
+                if os.path.isfile(src) and not os.path.exists(dst):
+                    os.symlink(os.path.join(step_subdir, fname), dst)
 
     if (
         args.try_auto_save_to_beaker

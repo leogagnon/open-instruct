@@ -163,7 +163,7 @@ def main(cfg: EvalConfig) -> None:
     m = re.fullmatch(r"(step|epoch)_(\d+)", checkpoint_name)
     wandb_step = int(m.group(2)) if m else None
 
-    output_path = os.path.join(repo_root, cfg.output_root, cfg.eval_suite.name, checkpoint_name)
+    output_path = os.path.join(repo_root, cfg.output_root, cfg.eval_suite.name, wandb_run_id, checkpoint_name)
 
     _ensure_hf_model(model_path)
 
@@ -173,6 +173,9 @@ def main(cfg: EvalConfig) -> None:
     olmes_env = os.environ.copy()
     olmes_env.setdefault("OPENAI_API_KEY", "dummy")
     olmes_env["PYTHONPATH"] = ""
+    # Disable PyTorch compilation — compilation bottlenecks can stall vllm worker
+    # processes long enough to trigger shm_broadcast acquire_read cancellations.
+    olmes_env["VLLM_DISABLE_PYTORCH_COMPILE"] = "1"
 
     tasks = OmegaConf.to_container(cfg.eval_suite.tasks, resolve=True)
 
@@ -199,7 +202,7 @@ def main(cfg: EvalConfig) -> None:
     if safety_suite:
         safety_tasks = OmegaConf.to_container(safety_suite.tasks, resolve=True)
         safety_output_path = os.path.join(
-            repo_root, cfg.output_root, safety_suite.name, checkpoint_name
+            repo_root, cfg.output_root, safety_suite.name, wandb_run_id, checkpoint_name
         )
         safety_cmd = [
             python_bin, "-m", "oe_eval.launch",

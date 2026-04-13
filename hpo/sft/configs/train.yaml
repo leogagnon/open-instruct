@@ -1,24 +1,16 @@
 defaults:
-  - _self_
   - hydra: base
+  - model: 1b                 # select with model=1b or model=7b on the CLI
   - experiment: null          # select with experiment=<name> on the CLI
   - hydra/sweeper/params: null
+  - _self_
   - override hydra/launcher: tamia
 
-# Model
-model_name_or_path: allenai/OLMo-2-0425-1B
-tokenizer_name: allenai/OLMo-2-0425-1B
-
 # Compute: 4xH100, single node
-# Effective batch = num_processes × per_device_train_batch_size × gradient_accumulation_steps
-#                 = 4 × 2 × 16 = 128
 num_processes: 4
-per_device_train_batch_size: 2
-gradient_accumulation_steps: 16
 
-# Training hyperparams (from docs/olmo2.md 1B reference)
+# Training hyperparams
 max_seq_length: 4096
-learning_rate: 3e-5
 lr_scheduler_type: linear
 warmup_ratio: 0.03
 weight_decay: 0.0
@@ -40,7 +32,6 @@ keep_last_n_checkpoints: -1
 clean_checkpoints_at_end: false
 save_initial_checkpoint: false  # save a step_0 checkpoint before training starts
 
-# Output — runs are saved under logs/results/<wandb_run_id>/
 output_root: /home/l/leog/links/projects/aip-glaj/leog/results
 
 # W&B project name (must match finetune.py's --wandb_project_name default)

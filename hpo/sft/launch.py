@@ -93,7 +93,8 @@ def main(cfg: DictConfig) -> None:
         dataset_use_per_source_cache=cfg.dataset_use_per_source_cache,
     )
     tc = TokenizerConfig(
-        tokenizer_name=cfg.tokenizer_name,
+        tokenizer_name_or_path=cfg.tokenizer_name,
+        tokenizer_name=cfg.tokenizer_name,  # keeps hash compatible with existing caches
         tokenizer_revision="main",
         add_bos=True,
         chat_template_name="tulu",
@@ -145,7 +146,7 @@ def main(cfg: DictConfig) -> None:
         # array_parallelism (32 by default in the fir launcher config).
         model_paths = ",".join(checkpoint_dirs)
 
-        eval_script = os.path.join(repo_root, "hpo/lm_eval/launch.py")
+        eval_script = os.path.join(repo_root, "hpo/eval/launch.py")
         eval_cmd = [
             "uv", "run", "python", eval_script,
             "-m",  # multirun: submits to SLURM via the configured launcher

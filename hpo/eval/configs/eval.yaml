@@ -20,7 +20,7 @@ batch_size: auto
 max_model_len: 4096        # override vLLM max sequence length (handles inputs slightly over model config limit)
 
 # Output root; results go to <output_root>/<eval_suite.name>/
-output_root: /home/l/leog/links/scratch/open-instruct/logs/eval_results
+output_root: /home/l/leog/links/scratch/open-instruct/hpo/logs/eval_results
 
 # W&B project to log eval results to (run ID is extracted from ckpt).
 wandb_project: open_instruct
